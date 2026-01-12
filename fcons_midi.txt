@@ -1,0 +1,706 @@
+library(tuneR);# midi<- readMidi("Neguit.mid"); midi_aux<-readMidi("Neguit_aux.mid");
+#install.packages("gm"); vignette("gm", package = "gm")
+library(gm)
+figures<-480*c(0.0625, 0.125, 0.25, 1/3, 0.5, 0.75, 0.875, 1)
+(
+matOut2midiNotes<-function(midi, figOut){
+  
+  
+  miditime<-cumsum(figOut)-figOut[1]
+  midiNotes<-data.frame(time=rep(NA, sum(!is.na(midi))), length=rep(NA, sum(!is.na(midi))),  track=rep(NA, sum(!is.na(midi))), channel=rep(NA, sum(!is.na(midi))),
+                        note=rep(NA, sum(!is.na(midi))), notename= rep(NA, sum(!is.na(midi))), velocity=rep(NA, sum(!is.na(midi))))
+  
+  while (sum(!is.na(midi))>0){
+    
+    trackBuit<-TRUE
+    i.nouTrack<-which(is.na(midiNotes$time))[1]
+    ij.1stNote<-which(!is.na(midi), T)[1,]
+    midiNotes$note[i.nouTrack]<-midi[ij.1stNote[1],ij.1stNote[2]]
+    midiNotes$time[i.nouTrack]<-miditime[ij.1stNote[2]]
+    midiNotes$length[i.nouTrack]<-figOut[ij.1stNote[2]]
+    midi[ij.1stNote[1],ij.1stNote[2]]<-NA
+    
+    ii<-ij.1stNote[2]+1
+    ##while
+    
+    for (i.col in ii:length(midi[1,])){
+      i.aqNote<-which(is.na(midiNotes$note))[1]-1
+      
+      i.notes<-which(midi[,i.col]==midiNotes$note[i.aqNote])
+      
+      if(length(i.notes)==0){
+        
+        i.notes<-which(!is.na(midi[,i.col]))
+        if (length(i.notes)>0){
+          midiNotes$note[i.aqNote+1]<-midi[i.notes[1],i.col]
+          midiNotes$time[i.aqNote+1]<-miditime[i.col]
+          midiNotes$length[i.aqNote+1]<-figOut[i.col]
+          
+        }
+      } else {
+        
+        midiNotes$length[i.aqNote]<-midiNotes$length[i.aqNote]+figOut[i.col]}
+      midi[i.notes[1],i.col]<-NA
+    }
+    print(midi)
+  }#while
+  
+  return(midiNotes)
+  
+  
+})
+(
+
+duradaQuantitzada<-function(duradaCodificada) {
+  sil_aux<-0; 
+  err <- abs(-0.5+( ((duradaCodificada)/figures)%%1 )) # err<-abs(duradaCodificada-figures); 
+  
+  i.fig<-max(which(err==max(err)));#   i.fig<-which(err==min(err));
+  multiple <- round(duradaCodificada/figures[i.fig])
+  # print( duradaCodificada<= multiple*figures[i.fig] & duradaCodificada*1.06>=multiple*figures[i.fig] )
+  #print(duradaCodificada>= multiple*figures[i.fig] & duradaCodificada/1.06<=multiple*figures[i.fig]) 
+  if ( (duradaCodificada<= multiple*figures[i.fig] & duradaCodificada*1.06>=multiple*figures[i.fig]) | (duradaCodificada>= multiple*figures[i.fig] & duradaCodificada/1.06<=multiple*figures[i.fig]) ) {
+    
+    sil_aux<-figures[i.fig]*multiple
+    #   print(sil_aux)
+  } else {
+    
+    sil_aux<-sil_aux+
+      figures[i.fig] * floor( 1.06* duradaCodificada /figures[i.fig]);
+    figura_previa<-sil_aux;
+    #  print(c(duradaCodificada, err, sil_aux, abs(( duradaCodificada - sil_aux - figures) / figures)) )
+    
+    condicio1<-any(0.25>abs( (duradaCodificada-sil_aux     -     figures) / figures ))
+    while((duradaCodificada-sil_aux     ) / sil_aux >0.0825 &  #treset respecte de redona:0.0825
+          (duradaCodificada-sil_aux     ) >=0.8*figures[1] &  #com a mínim fusa
+          ( (duradaCodificada-sil_aux   ) >=0.8*0.5*figura_previa | #pot ser puntet
+            (duradaCodificada-sil_aux   ) <=1.2*0.5*figura_previa ) ) { 
+      
+      if (length ( which(1.25>abs(( duradaCodificada - sil_aux - figures) / figures) ) )==0 ) { #la condicio te valors per a q passe tot - valorar llevar if-
+      } else {
+        
+        # i.fig<- which(abs(( duradaCodificada - sil_aux - figures) / figures) == min(abs(( duradaCodificada - sil_aux - figures) / figures) ) )
+        i.fig<- max(which(figures/1.25 < ( duradaCodificada - sil_aux ) ))
+        #El cas és que s'hauria d'agafar el doble puntet, SI... va seguit d'una figura curta
+        #Entre puntet-doble puntet-pròxima figura, triar la que dóne:
+        #valor més alt o valor més alt en en posició:
+        # ? múltiple de figura unitat o 
+        # ? algun submúltiple (negra, corxera..., però no menys de semicorxera) 
+        # ? valor igual o superior al mínim puntet -no al doble puntet, perquè, en aqueix cas, el mètode no discriminaria
+        #tatum<-rep(0, max(cumsum( c(0.825, 1, 0.75,0.25, 0.825, 1)))/0.125)
+        #tatum[round( cumsum(c(0.825, 1, 0.75,0.25, 0.825, 1))/0.125)]<-1 
+        #which(acf(tatum)$acf==max(acf(tatum)$acf[2:length(acf(tatum)$acf)])) -1 (en posició 1 es troba lag=0 )
+        #max(acf(tatum)$acf[2:length(acf(tatum)$acf)])
+        #> (acf(tatum)$acf)
+        #[,1]
+        #[1,]  1.00000000
+        #...
+        #[9,] 0.62481837 #La màxima regularitat es dona cada 1 temps
+        #FRONT A
+        #tatum<-rep(0, max(cumsum( c(1, 1, 0.75,0.25, 1, 1)))/0.125)
+        #tatum[round( cumsum(c(1, 1, 0.75,0.25,1, 1))/0.125)]<-1 
+        #tatum[is.na(tatum)]<-0
+        #which(acf(tatum)$acf==max(acf(tatum)$acf[2:length(acf(tatum)$acf)])) -1
+        #> (acf(tatum)$acf)
+        #> , , 1
+        #[,1]
+        #[1,]  1.00000000
+        #...
+        #[9,]  0.63137255
+        
+        #     print(figures[i.fig])
+        
+        if(length(i.fig)>1) {
+          print("possible fallada en la detecció de la durada del silenci."); 
+          sprintf("Durada codificada %f", duradaCodificada - sil_aux - figures);
+          print("Figures possibles "); 
+          print(abs(( duradaCodificada - sil_aux - figures) / figures));  print(figures[i.fig])
+          i.fig<-max(i.fig)}
+      }
+      figura_previa<-figures[i.fig];
+      sil_aux<-sil_aux+figures[i.fig];
+      #  print(c(duradaCodificada, err, sil_aux, abs(( duradaCodificada - sil_aux - figures) / figures)) )
+    }
+  }
+  return(sil_aux)
+})
+
+##########PASSA ACORD A FORMA NORMAL
+conv2formaNormal<-function(acord){
+acord<-sort(unique(acord%%12))
+
+if(length(acord)==1){return(list(0, acord))}
+if( length(unique(diff(c(acord, acord[1]+12))))==1 ){ return(list(acord, acord)) }
+
+intervals_inversions<-matrix(rep(0, length(acord)*length(acord)), ncol=length(acord), nrow=length(acord) )
+aux_index_baix_formaNormal<-1;
+
+for (ii in 1:length(acord)){
+aux_acord<-sort((acord-acord[ii])%%12)
+#print(aux_acord)
+
+intervals_inversions[min(2, ii),]<-c(tail(aux_acord,1) - aux_acord[1], diff(aux_acord) )
+#print(intervals_inversions)
+
+iii<-1; 
+
+while (ii>1 & iii <length(intervals_inversions[1,])){
+#print(iii)
+if(intervals_inversions[1,iii]==intervals_inversions[2,iii]){} 
+	else {
+		if(intervals_inversions[1,iii]<intervals_inversions[2,iii]){iii<-iii+12} 
+			else{intervals_inversions[1,]<-intervals_inversions[2,]; aux_index_baix_formaNormal<-ii} } 
+iii<-iii+1;
+#print(intervals_inversions)
+} #while
+} #for
+return(list( sort((acord-acord[aux_index_baix_formaNormal])%%12), (sort((acord-acord[aux_index_baix_formaNormal])%%12)+acord[aux_index_baix_formaNormal])%%12  ))
+}
+###########PASSA ACORD A FORMA NORMAL - FI
+
+(mtof<-function(x) {440* 2^((x-69)/12)})
+
+(processa.midi<-function(midi) {
+  if(!is.null(midi) & !is.null(colnames(midi))){#all(%in%c("time", "event", "type", "channel", "parameter1", "parameter2", "parameterMetaSystem", "track")) ) {
+    midiNotes<-getMidiNotes(midi)} else
+    { figOut<-midi[[2]]
+    
+    midiNotes<-matOut2midiNotes(midi[[1]], figOut)}
+  #print(midiNotes)
+  #midiNotes<-getMidiNotes(midi)
+  #Quantitzem durades
+  for (ii in 1:nrow(midiNotes)) {
+    midiNotes$length[ii]<-duradaQuantitzada(midiNotes$length[ii]);
+  }
+  midiNotes$time.noteOff<-midiNotes$time +midiNotes$length;
+  onoff<-unique(c(midiNotes$time, midiNotes$time.noteOff)); onoff<-onoff[order(onoff)]
+  notes=rep(list(NA), 10*length(onoff))
+  figs=rep(list(NA), 10*length(onoff))
+  
+  t=c(0,rep(-1,  -1+10*length(onoff)))
+  maxnotesSimultanies<-10;
+  mat<-matrix(rep(0,length(onoff)*maxnotesSimultanies), ncol=length(onoff), nrow=maxnotesSimultanies)
+  tie<-(list())
+  
+  #midiFigures<-list()
+  #notes<-list()
+  #tie<-list()
+  
+  figuresGM<-c(0.75*2^c(0:3) , 2^c(-3:2))
+  
+  #l<-data.frame(notes=rep(list(NA), 10*length(onoff)), figs=rep(list(), 10*length(onoff)), t=c(0,rep(-1,  -1+10*length(onoff))) )
+  
+  iLine.el<-1;
+  
+  for (ii in 1:(length(onoff)-1)){
+    
+    
+    if(any(onoff[ii] >= midiNotes$time & onoff[ii]<midiNotes$time.noteOff)) { #SI NOTA
+      aux_fig<-onoff[ii+1]-onoff[ii];
+      
+      while(any(figuresGM<=aux_fig/480)){
+        novaFigura<-max(figuresGM[figuresGM<= (aux_fig/480) ])
+        aux_fig<-aux_fig-480*novaFigura
+        figs[[iLine.el]]<-novaFigura;
+        
+        notes[[iLine.el]]<-midiNotes$note[ which(midiNotes$time <=onoff[ii] & midiNotes$time.noteOff>onoff[ii])]
+        
+        if (length(notes[[iLine.el]])>length(mat[,1])) { 
+          print(paste("N notes simultànies supera nrow de mat (pianoroll)",length(notes[[iLine.el]]) ))
+          print(c(length(mat[1,]), 
+                  length(notes[[iLine.el]])-length(mat[,1]),
+                  length(mat[1,]) * (length(notes[[iLine.el]])-length(mat[,1]) )))
+          mat<-rbind(mat , matrix( rep(0, length(mat[1,]) * (length(notes[[iLine.el]])-length(mat[,1]) ) ), ncol=length(mat[1,]), nrow= (length(notes[[iLine.el]])-length(mat[,1]) ) )  )
+        }
+        if (iLine.el>length(mat[1,])) {
+          print(paste("ací?", iLine.el, length(mat[1,]) ))
+          mat<-cbind(mat , matrix( rep(0, 10*length(mat[,1])), ncol=10, nrow= length(mat[,1]) ) )
+        }
+        mat[ 1:length(notes[[iLine.el]]), iLine.el]<- notes[[iLine.el]]
+        #original_eliminar el comentari si la seg. línia no funciona#  if(any(aux_fig/480>= figuresGM) ){      tie<-append(tie, iLine.el)}
+        #mirar línia 172. Crec aquesta instrucció probablment sobra# if(aux_fig/480>min(figuresGM) & all(aux_fig/480!=figuresGM) ){      tie<-append(tie, iLine.el)}
+        iLine.el<-iLine.el+1
+      }
+      for (iAcord in 1:length(notes[[iLine.el-1]])) {
+        if (any(midiNotes$note==notes[[iLine.el-1]][iAcord] & 
+                midiNotes$time<=onoff[ii] & 
+                midiNotes$time.noteOff>onoff[ii] & 
+                onoff[ii+1]<midiNotes$time.noteOff )) {tie<-append(tie, list( c(iLine.el-1, iAcord)))}
+      }
+    }else{ # SI SILENCI
+      #primera solució, però els silencis, com les notes, també han d'estar quantitzats amb les figures figuresGM#
+      ##figs[[iLine.el]]<-(onoff[ii+1]-onoff[ii])/480;
+      ##iLine.el<-iLine.el+1
+      aux_fig<-(onoff[ii+1]-onoff[ii])
+      while(any(figuresGM<=aux_fig/480)){
+        novaFigura<-max(figuresGM[figuresGM<= (aux_fig/480) ])
+        aux_fig<-aux_fig-480*novaFigura
+        figs[[iLine.el]]<-novaFigura;
+        t[iLine.el+1]<-novaFigura+t[iLine.el];
+        
+        iLine.el<-iLine.el+1
+      }
+      
+      
+      
+    }
+  }
+  
+  return(list(mat, onoff, notes, figs, tie))
+})
+(
+permutacions<-function(x, elementsInicials=length(x)){#,mat=matrix(rep(0, length(x)))){ 
+  x3<-NULL
+  if(length(x)==1){return(x)}
+  else{
+    for(i.x in 1:length(x)){ 
+      x2<-rbind(x[i.x], permutacions(x[-i.x], elementsInicials ));
+      if(i.x==1){x3<-x2}else{x3<-cbind(x3, x2)};}
+    
+  }  #else
+  return(x3)
+}#functio
+)
+(quasinormalForm<-function(x){
+  x<-sort(x%%12)
+  x<-unique(x)
+  x_entrada<-x
+  aux_diferencies<-data.frame(difExtrem=rep(-1, length(x)), difPenultim=rep(-1, length(x)), int1=rep(-1, length(x)))
+  for (i.x in 1:length(x)){
+    x<-c(x[2:length(x)], x[1])
+    x<-(x)%%12
+    aux_diferencies[i.x,]<-c(x[length(x)]-x[1], x[max(length(x)-1,1)]-x[1], x[min(2,length(x))]-x[1])%%12
+  }
+  
+  x<-c(x[2:length(x)], x[1])
+ # print(x)
+  #print(order(aux_diferencies$difExtrem, aux_diferencies$difPenultim, aux_diferencies$int1))
+  #print(aux_diferencies)
+  i0<-order(aux_diferencies$difExtrem, aux_diferencies$difPenultim, aux_diferencies$int1)[1]
+  return(list((c(x[i0:length(x)],x[min(1,i0-1):(i0-1)])-x[i0])%%12, transp=x[i0]))
+  }
+
+)
+
+
+##############manera alternativa de crear mat i tRel
+mat<-matrix(c(0,0), ncol=1)
+tRel<-(1)
+
+for (ii in 1:5){
+  for (jj in 1:ii){
+       mat<-cbind(mat, matrix(
+                            c((jj-1)*ii, ii),ncol=1
+                          ) 
+              ) 
+   if (jj==1) {tRel<-c(tRel, 0)} else {
+   if (jj==ii) {tRel<-c(tRel, 2)} else {
+     tRel<-c(tRel, 1)
+     
+     
+   }
+   }
+   
+  }
+}
+########################################
+(
+igualHarmonia<-function(harm1, harm2,mateixaDisposicio=FALSE){
+  harm1<-unique(harm1[!is.na(harm1)]%%12)
+  harm2<-unique(harm2[!is.na(harm2)]%%12)
+  if (length(harm1)==length(harm2)){
+  for (ii in 0:11) {
+  if(all (((harm1+ii)%%12) %in% harm2  )){
+    
+   return(list(TRUE, ii)) 
+    
+  }
+  }
+    return(list(FALSE, NULL))
+  }
+  else{return(list(FALSE, NULL)) }
+}
+)
+
+
+
+
+(get.varsMidMark<-function(midiFiles, i.compas ){
+  diccionariEstats<-data.frame(estat=character(0), file=character(0), t=numeric(0))
+  mixEstats<-c() #Tots els estats amb els que construirem la MT de Markov
+  mixMidis_Data<-list(list(), list()) #onoff, estats, metricStrength
+  
+  for (i.midiFile in 1:length(midiFiles)) {
+    ##midi<- readMidi("Neguit.mid"); midi_aux<-readMidi("Neguit_aux.mid");
+    
+    midi<-readMidi(midiFiles[i.midiFile]); 
+    
+    if(!inherits(try(
+      midi_aux<-readMidi(gsub("[[:punct:]]mid$", "_aux.mid", midiFiles[i.midiFile])), silent=TRUE
+    ), "try-error") ) {midi_aux<-readMidi(gsub("[[:punct:]]mid$", "_aux.mid", midiFiles[i.midiFile]))} else 
+    {      midi_aux<-midi}
+    
+    
+    print("processa midi notes i altures")  
+    llista<-processa.midi(midi)
+    print("processa midi forma")  
+    llista_aux<-processa.midi(midi_aux)  ##fitxer midi modificat amb notes "especials", foa del rang del piano per a indicar final / inici de frase...
+    onoff<-llista[[2]]
+print(onoff)
+    #Pista Auxiliar de forma
+    pista_aux<-rep(5, length(llista[[2]])); #onoff
+    for (i.llista in 1:ncol(llista_aux[[1]])){ 
+      if(any(llista_aux[[1]][,i.llista]<21 & llista_aux[[1]][,i.llista]>0) & any(llista_aux[[1]][,i.llista]>108)) {
+        pista_aux[llista[[2]]==llista_aux[[2]][i.llista] ]<-4} #se superposa fi de frase i arranc de frase
+      else if (any(llista_aux[[1]][,i.llista]<12 & llista_aux[[1]][,i.llista]>0) ) {
+        pista_aux[ llista[[2]]==llista_aux[[2]][i.llista] ]<-0} 
+      else if (any(llista_aux[[1]][,i.llista]<21 & llista_aux[[1]][,i.llista]>0) ) {
+        pista_aux[ llista[[2]]==llista_aux[[2]][i.llista] ]<-1} 
+      else if (any(llista_aux[[1]][,i.llista]>=120) ) {#Do#9 i superior. Procés cadencial d'acompanyament sol
+        pista_aux[ llista[[2]]==llista_aux[[2]][i.llista] ]<-3} 
+      else if (any(llista_aux[[1]][,i.llista]>108) ) {#DO#8 i superior. Procés cadencial melodia 
+        pista_aux[ llista[[2]]==llista_aux[[2]][i.llista] ]<-2}  
+    }
+    
+    #resum:
+    #4: coincideixen principi i fi
+    #3: 
+    #2: 
+    #1: inici melodia <21 LA0, per baix del la més greu del piano
+    #0: inici acompanyament: <12, per baix de DO 0 
+    for (i.pista_aux in 2:(length(pista_aux)-1)) { 
+      for (i.opcio in 0:4) { 
+        if (all(pista_aux[c(i.pista_aux-1,i.pista_aux+1)]==i.opcio) & pista_aux[i.pista_aux]==5){#5 és el valor per defecte. Si hi ha valor per defecte abans i després d'un punt especial, indica algun desajust en crear l'arxiu "_aux" amb la info de forma. 
+          #P. ex. 1 - 5 -1 . No té sentit que la melodia comence 2 vegades en 3 notes. Aleshores, les tres notes són arranc melòdic
+          pista_aux[(i.pista_aux-1):(i.pista_aux+1)]<-i.opcio} }}
+    #metricStrength
+    
+    
+    compas<-compassos[i.compas[i.midiFile],]
+    (get.metricStrength<-function(onoff, compas) {
+      t_entreEvents<-diff(onoff)
+      strengthPattern<-4-c(0, 2,1,3)
+      event_metricStrength<-rep(0, length(t_entreEvents))
+      iteracions<-0
+      sumaIteracioAnterior<-(-1)
+      #no del compas sino de cada nivell (encara que el nivell sup és el de compàs)
+      utemps<-compas$utemps
+      ntemps<-compas$ntemps
+      #while(sum(t_entreEvents[!is.na(event_metricStrength)])<0.9*(sum(t_entreEvents)) &
+      #sum(t_entreEvents[!is.na(event_metricStrength)])!=sumaIteracioAnterior & iteracions<6){
+      
+      for(ii in 1:6){
+        sumaIteracioAnterior<-sum(t_entreEvents[!is.na(event_metricStrength)])
+        
+        esbeat<-((onoff[1:(length(onoff)-1)]%%(480*utemps))==0)
+        event_metricStrength[esbeat]<-event_metricStrength[esbeat]+strengthPattern[ 1+(onoff[1:(length(onoff)-1)][esbeat]/(480*utemps))%%ntemps]
+        if(utemps==compas$utemps) { ntemps<-utemps/0.5}else{ntemps<-2}
+        if(utemps==1.5) { utemps<-utemps/3}else{utemps<-utemps/2}
+        
+        iteracions<-iteracions+1}
+      return(event_metricStrength)
+    }
+    )
+    event_metricStrength<-get.metricStrength(llista[[2]], compas)
+    
+    
+    
+    
+    #Anem a suposar 10 notes sonant simultàniament
+    #midiNotes_track1<-midiNotes[midiNotes$track==1 , ]
+    #midiNotes_track1<-cbind(midiNotes_track1, data.frame(lengthQuant=midiNotes_track1$length))
+    
+    #Anem a suposar 2*length(unique(midiNotes_track1$time)) columnes=events en el temps perquè el màxim en absència de polifonia en un track
+    #seria 1 nota i 1 silenci per cada missatge midi noteOn
+    if(FALSE){
+      proll<-data.frame(mat=matrix(rep(NA, maxnotesSimultanies*2*length(unique(midiNotes_track1$time))), ncol=10, nrow=2*length(unique(midiNotes_track1$time))), #matriu piano roll
+                        t= c(0, rep(-1, -1+2*length(unique(midiNotes_track1$time))) ), #t d'inici
+                        beat= rep(NA, 2*length(unique(midiNotes_track1$time))), #beat
+                        beatStrength= rep(NA, 2*length(unique(midiNotes_track1$time))), #1r compàs, prioritat màxima,etc. 
+                        tonalitat= rep(NA, 2*length(unique(midiNotes_track1$time))), #tonalitat calculada
+                        harm.beat= rep(NA, 2*length(unique(midiNotes_track1$time))), #harmonia - fonamental?, - crec que afegir mode, constitució... Am, C7... almenys a nivell melòdic confon 
+                        harm.local= rep(NA, 2*length(unique(midiNotes_track1$time))), #tonalitat calculada
+                        ordre.grupNiv1= rep(NA, 2*length(unique(midiNotes_track1$time))),  #inici - fi grup - nivell 1 motiu (1 o 2 c.): a. 1a / última, b. fracció dins d'aquest nivell (0%...100%), per quantils ~= compassos == identificar quin grup és -p.ex. c(1, 1, 1, -1, 2, 2, -2, ...)  
+                        fraccio.grupNiv1= rep(NA, 2*length(unique(midiNotes_track1$time))),  #inici:0 - desenv:1 - fi:2
+                        ordre.grupNiv3= rep(NA, 2*length(unique(midiNotes_track1$time))),  #inici - fi grup - nivell ¿3 semifrase? (4 c.), 1rs 4 compassos 
+                        fraccio.grupNiv3= rep(NA, 2*length(unique(midiNotes_track1$time)))
+      ); 
+    }
+    #afegir x .ex un grau de tensió harmònica: 
+    #P.ex. 3a: 1: 5a: 2; 6a:  4a: 7m: 3, 2aM: 4; 4A:5; 5aA, 9am: 6
+    #Caldria diferenciar si és respecte al baix, a la fonamental o entre veus
+    
+    ##################
+    #CACUL d'ESTATS DE LA MATRI DE TRANSICIÓ
+    #################
+    t_entreEvents<-diff(onoff)
+    quantils<-quantile(t_entreEvents, seq(1/5, 1, 1/5))
+    estats<-data.frame(estat=character(0),obra=character(0),t=numeric(0))
+    #get.strEstat(codifestat_aqCol){paste(c(rep("00", 10-length(codifestat_aqCol)), codifestat_aqCol), collapse  ="" )}
+    mat<-llista[[1]]
+    estats<-data.frame(estat=character(length(mat[1,])),
+                       obra=midiFiles[i.midiFile],
+                       t=numeric(length(mat[1,])), 
+                       arrancFi=numeric(length(mat[1,])),
+                       event_metricStrength=numeric(length(mat[1,])),
+                       quintilDurada=numeric(length(mat[1,])))
+    
+    
+    
+    
+    for (i.pianoroll in 1:(length(mat[1,])-1)){
+      
+      aqCol<-mat[order(mat[!is.na(mat[,i.pianoroll]) & mat[,i.pianoroll]>0 ,i.pianoroll]), i.pianoroll]
+      aqSil<-(length(aqCol)==0)
+      if(i.pianoroll==1){#preCol<-0; 
+        preCol<-aqCol[aqCol>0]
+        if (!length(preCol)){preCol<-0}
+        preSil<-TRUE} else{
+          preCol<-mat[order(mat[!is.na(mat[,max(i.pianoroll-1,1)]) & mat[,max(i.pianoroll-1, 1)]>0 ,max(i.pianoroll-1,1)]), i.pianoroll-1]
+          preSil<-(length(preCol)==0)
+          if(preSil){preCol<-0}
+          
+        }
+      
+      if(i.pianoroll<=2){#pre_preCol<-0;  
+        pre_preCol<-aqCol[aqCol>0];
+        if (!length(pre_preCol)){pre_preCol<-0}
+        pre_preSil<-TRUE}else{
+          pre_preCol<-mat[order(mat[!is.na(mat[,max(i.pianoroll-2,1)]) & mat[,max(i.pianoroll-2, 1)]>0,max(i.pianoroll-2,1)]), i.pianoroll-2]
+          pre_preSil<-(length(pre_preCol)==0)
+          if(pre_preSil){pre_preCol<-0}
+        }
+      
+      
+      #codificació
+      #AQ COL
+      ###########CODI de l'enfocament anterior CONGELAT
+      if (FALSE) {codifestat_aqCol<-min(99,max(50+diff(aqCol),10)); if (length(codifestat_aqCol)==0){codifestat_aqCol<-0}; 
+      codifestat_aqCol<- paste(c(rep("00", 10-length(codifestat_aqCol)), codifestat_aqCol), collapse  ="" )} 
+      ###########CODI CONGELAT
+      aqCol2<-unique(aqCol)-min(aqCol)
+      aqCol2<-aqCol2[aqCol2>0]
+      
+      if (length(aqCol2)==0){aqCol2<-0
+      if (aqSil)  {codifestat_aqCol<-"00"; aqCol<-0} else {
+        if ( sum(aqCol>0)==1) {codifestat_aqCol<-"99"} 
+        #els dos primers dígits:  indiquen l'intèrval respecte al baix previ
+      }
+      } else {
+        codifestat_aqCol<-sprintf("%02x", aqCol2[order(aqCol2)]) #passa els intèrvals en hexadecimal
+      }
+      
+      
+      if(FALSE){
+        if (aqSil)  {codifestat_aqCol<-"00"; aqCol2<-0} else {
+          if ( sum(aqCol>0)==1) {codifestat_aqCol<-"99"} else {
+            aqCol2<-unique(aqCol)-min(aqCol)
+            aqCol2<-aqCol2[aqCol2>0]
+            #codifestat_aqCol<-as.character.hexmode(sapply(aqCol2, function(x) min(192, max(104+x,16 ))) ) # as.character.hexmode(min(192,max(104+diff(aqCol),16))) #nou 104 és el valor de referència (0 d'aq sistema de ref); suposant un salt de 88+1(error) o no nota min(10, character(0))==10, mantenim els 2 caràcters ; 
+            #nou de forma simètrica 104+88 == 192, 192 o superior indica probablement una errada -intèrval massa gran-
+            codifestat_aqCol<-sprintf("%02x", aqCol2[order(aqCol2)]) #Si l'intèrval és inferior a 16, sent, per tant, 1-floor(aqCol2)==1, manté els dos dígits: 15 -> "0f" i no "f"
+          }
+        }
+      }
+      #borrar if (length(codifestat_aqCol)==0 & length(aqCol)==0){ 
+      #borrar codifestat_aqCol<-"-1" #tota columna -1, silenci. Aeusta situació no es dona
+      #borrar } else { codifestat_aqCol<-c(codifestat_aqCol, "50") } ; #Afegim el baix "perdut" per efecte de diff
+      if(FALSE){
+        codifestat_aqCol<-  paste(c("-", codifestat_aqCol,"_", 
+                                    ifelse(aqSil & !aqSil, "0",
+                                           ifelse( preSil & ! preSil, ifelse(pre_preSil, 0 , 16^3+min(aqCol)-min(pre_preCol) ) , sprintf("%04x", 16^3+min(aqCol2)-min(preCol) )  ))
+        ), collapse  ="" )  # paste(c(rep("-1", 10-0.5*length(codifestat_aqCol)), codifestat_aqCol), collapse  ="" ) 
+        
+        
+      }else{
+        #16^3+min(aqCol) en compte de 16^3+min(aqCol2) . Comprovar
+        codifestat_aqCol<-  paste(c("-", 
+                                    codifestat_aqCol,
+                                    "_", 
+                                    sprintf("%04x", ifelse(aqSil, 0,
+                                                           ifelse(length(preCol[preCol>0 & !is.na(preCol)])==0,
+                                                                  #aqCol no és silenci i preCol és silenci
+                                                                  16^3+min(aqCol)-min(pre_preCol[ !is.na(pre_preCol) & pre_preCol>0]) , # 16^3+min(aqCol)
+                                                                  16^3+min(aqCol)-min(preCol[!is.na(preCol) & preCol>0])
+                                                           )
+                                    )
+                                    )
+        ), collapse  ="" )
+        
+      }
+      
+      aux_print<-ifelse(aqSil, 0,
+                        ifelse(length(preCol[preCol>0 & !is.na(preCol)])==0,
+                               #aqCol no és silenci i preCol és silenci
+                               16^3+min(aqCol)-min(pre_preCol[ !is.na(pre_preCol) & pre_preCol>0]) , # 16^3+min(aqCol)
+                               16^3+min(aqCol)-min(preCol[!is.na(preCol) & preCol>0])
+                        )
+      )
+      if(is.na(aux_print)){print(i.pianoroll); print(aqCol); print(preCol); print(pre_preCol); print(mat[,(i.pianoroll-2):i.pianoroll])}
+      #PRECOL
+      ###########CODI de l'enfocament anterior CONGELAT
+      if (FALSE) {
+        intervals<-c();for(i.aqCol in 1:length(aqCol)){intervals<-c(intervals,50+preCol-aqCol[i.aqCol])}
+        codifestat_preCol<- paste(c(rep("00", 20-length(intervals)), intervals), collapse  ="" ) }
+      ###########CODI CONGELAT
+      
+      #COMPTE AMB A?? ifelse(is.na(numeric(0)),1 ,2 )
+      #logical(0)
+      #COMPTE AMB A?? ifelse(is.na(numeric(0)) | length(numeric(0))==0,1 ,2)
+      #logical(0)
+      
+      if (FALSE) {
+        #No és una mala aproximació però molt enrevesada i dificultarà la decodificació
+        intervals<-as.character.hexmode( ifelse(pre_preSil, 
+                                                ifelse(aqSil, preCol-min(mat[mat[i.pianoroll+1]>0,i.pianoroll+1]), #(preCol%%12)[order(preCol%%12)], 
+                                                       ifelse(preSil, 0 ,104+preCol-min(aqCol)) ), 
+                                                104+preCol-min(pre_preCol)) );  #nou intervals respecte a la nota més greu de aqCol, si aq columna és silenci es calculen respecte a 60 (64.5, simetria del teclat)
+      } else {
+        
+        
+        if (any(!is.na(preCol) & preCol>0)) { 
+          #PRECOL no és silenci
+          if (any(!is.na(aqCol) & aqCol>0)) {
+            #aqCOL no és silenci
+            codifestat_preCol<-sprintf("%04x",16^3+unique(preCol[preCol>0 & !is.na(preCol) ])-min(aqCol) ) #SI PRECOL NO ÉS SIL. es van a fer càlculs amb l'estat, però el determina, cosa que condiciona les transicions
+            
+          } else {
+            #pre_preCol no és silenci
+            if (any(!is.na(pre_preCol) & pre_preCol>0)) {
+              codifestat_preCol<-sprintf("%04x",16^3+unique(preCol[preCol>0 & !is.na(preCol) ])-min(pre_preCol) )
+              
+            } else {
+              #Si pre_preCol i aqCol són silenci: agafem pre_pre_preCol                   
+              codifestat_preCol<-sprintf("%04x",16^3+unique(preCol[preCol>0 & !is.na(preCol) ])-
+                                           min(
+                                             mat[!is.na(mat[,max(i.pianoroll-3,1)]) & mat[,max(i.pianoroll-3, 1)]>0,
+                                                 max(i.pianoroll-3,1)]     
+                                           )
+              ) 
+            }#else: pre_preCol és silenci i agafem pre_pre_preCol
+            
+          }#else: aqCol és silenci
+        }else{
+          #pre_Col==Silenci
+          codifestat_preCol<-sprintf("%04x", 0) #16^3+unique(preCol)-min(aqCol)) #SI ÉS SILENCI: "0000"
+          
+        }
+        
+        #codifestat_preCol<-as.character.hexmode(16^3+preCol-min(aqCol))
+        
+        
+      }
+      
+      codifestat_preCol<- paste(c("-", codifestat_preCol), collapse  ="" )#nou 
+      
+      #PRE_PRECOL
+      ###########CODI de l'enfocament anterior CONGELAT
+      if (FALSE) {
+        intervals<-c();for(i.aqCol in 1:length(aqCol)){intervals<-c(intervals,50+pre_preCol-aqCol[i.aqCol])}
+        codifestat_pre_preCol<- paste(c(rep("00", 100-length(intervals)), intervals), collapse  ="" )}
+      ###########CODI CONGELAT
+      #intervals<-as.character.hexmode(ifelse(is.na(aqCol),pre_preCol-104 ,104+pre_preCol-min(aqCol))  ) #nou #intervals respecte a la nota més greu de aqCol, si aq columna és silenci es calculen respecte a 60 (64.5, simetria del teclat)
+      
+      
+      if(FALSE){
+        intervals<-as.character.hexmode( ifelse( aqSil, 
+                                                 ifelse(pre_preSil, 0,104+pre_preCol-min(preCol)), 
+                                                 ifelse(preSil & pre_preSil, 0,  104+pre_preCol-min(aqCol)) ) );  #nou intervals respecte a la nota més greu de aqCol, si aq columna és silenci es calculen respecte a 60 (64.5, simetria del teclat)
+      }else{
+        if (any(!is.na(pre_preCol) &  pre_preCol>0)){
+          #PRE_PRECOL NO ÉS SILENCI
+          if (!aqSil){
+            #aqCol NO ÉS SILENCI
+            codifestat_pre_preCol<- sprintf("%04x",16^3+unique(pre_preCol[!is.na(pre_preCol) & pre_preCol>0])-min(aqCol))
+          } else {
+            #aqCol ÉS SILENCI, referenciem respecte al mín de preCol
+            codifestat_pre_preCol<- sprintf("%04x",16^3+unique(pre_preCol[!is.na(pre_preCol) & pre_preCol>0])-min(preCol))
+          }
+          
+        } else{ 
+          #PRE_PRECOL ÉS SILENCI
+          codifestat_pre_preCol<-sprintf("%04x", 0 ) #16^3+unique(pre_preCol)-min(aqCol) )
+        }
+        
+        codifestat_pre_preCol<- paste(c("-", codifestat_pre_preCol), collapse  ="" )#nou 
+        
+      }
+      
+      #DURADA RELATIVA L'ANTERIOR
+      #En cas de voler començar per i. if(i.pianoroll==1){durRel<-3} else{
+      durRel<-ifelse(t_entreEvents[i.pianoroll]>t_entreEvents[i.pianoroll-1],2,  ifelse(t_entreEvents[i.pianoroll]==t_entreEvents[i.pianoroll-1],1, 0))
+      durRel<-ifelse(length(durRel)==0, 1, durRel)
+      durRel<-incloure$durRel*durRel
+      quintilDurada<-incloure$quintilDurada * min(which(quantils>=t_entreEvents[i.pianoroll]))
+      #METRICSTRENGTH RELATIVA A L'ANTERIOR
+      mstrengthRel<-ifelse(event_metricStrength[i.pianoroll]>event_metricStrength[i.pianoroll-1],2,  ifelse(event_metricStrength[i.pianoroll]==event_metricStrength[i.pianoroll-1],1, 0))
+      mstrengthRel<-ifelse(length(mstrengthRel)==0,  ifelse(event_metricStrength[i.pianoroll]==max(event_metricStrength), 2, 0), mstrengthRel)
+      mstrengthRel<-incloure$mstrengthRel*mstrengthRel
+      #inici de frase - cadencia
+      arrancFi<-incloure$arrancFi*c(pista_aux[i.pianoroll-1], pista_aux[i.pianoroll])# 0 arranc acompanyament - 1 arranc melodia - 2 cad melòdica - 3 cad acomp - 4 cadenc-arranc
+      if(length(arrancFi)==1){ arrancFi<-c(0, arrancFi)}
+      #podria ser interessant afegir inici de grup - en quin nivell? frase  - 
+      
+      codifestat<-paste(c(arrancFi, quintilDurada,durRel, mstrengthRel ,codifestat_aqCol, codifestat_preCol,codifestat_pre_preCol  ), collapse="")
+      
+      
+      #estats: registre de l'estat de cada tall=columna del pianoroll
+      estats[i.pianoroll, c("estat", "t", "arrancFi", "event_metricStrength", "quintilDurada")]<-
+        data.frame(estat=codifestat,
+                   t=onoff[i.pianoroll], 
+                   arrancFi=pista_aux[i.pianoroll],
+                   event_metricStrength=event_metricStrength[i.pianoroll],
+                   quintilDurada=quintilDurada)
+      
+      #diccionariEstats<-relaciona l'estat amb el seu midi file i la seua posició. Els estats estan repetits, çò és, estan registats en "long format"
+      #diccionari Estats té tots els estats seguits, independentment que pertanguen a arxius diferents
+      diccionariEstats<-rbind(diccionariEstats, data.frame(estat=codifestat, file=midiFiles[i.midiFile], t=onoff[i.pianoroll]))
+      
+    }
+    
+    ##############
+
+
+    #nou 
+    #Estat "0" separa les peces 
+    #L'afegim tb abans de l'arranc de la primera peça   
+    estats<-rbind(  data.frame(estat="0",
+                               obra="",
+                               t=0, 
+                               arrancFi=-1,
+                               event_metricStrength=0,
+                               quintilDurada=0), estats)
+    
+    #L'afegim al final de la darrera peça codificada
+    estats[i.pianoroll+1, c("estat", "t", "arrancFi", "event_metricStrength", "quintilDurada")]<-
+      data.frame(estat="0",
+                 t=onoff[i.pianoroll+1], 
+                 arrancFi=-1,
+                 event_metricStrength=0,
+                 quintilDurada=0)
+    #recordatori: diccionari Estats té tots els estats seguits, independentment que pertanguen a arxius diferents
+    diccionariEstats<-rbind(diccionariEstats, data.frame(estat=0, file=midiFiles[i.midiFile], t=onoff[i.pianoroll+1]))
+    mat<-cbind(0,mat) #nou
+    mixMidis_Data<-list(append(mixMidis_Data[[1]], list(data.frame(t(mat), cbind(0,estats)) ) ), append(mixMidis_Data[[2]], list(quantils ) ) ); #list (data.frame(t(mat) ...)) list(quantils)? 
+    
+    ##############
+    #if(codifestat %in% mixEstats){ MT[codifestat == mixEstats, estats[length(estats)-1] == mixEstats } else {mixEstats<-c(mixEstats, codifestat); MT<-cbind(MT, MT[1,])*0; MT<-rbind(MT, MT[1,])*0 }
+    
+  }##for (i.midiFile in 1:length(midiFiles)) {  ##modificat
+  
+  return(list(diccionariEstats, mixMidis_Data))
+}#function
+)
+compassos<-data.frame(ntemps=c(2,3,4,2,3,4),utemps=c(1,1,1,1.5,1.5,1.5))
+
+arranja_darrer_onset<-function(cohestil_onset, midiFiles){
+if(tail(cohestil_onset, 1)==0){ 
+	last_cohestil_onset<-cohestil_onset[length(cohestil_onset)-1]/480
+	penult_cohestil_onset<-cohestil_onset[length(cohestil_onset)-2]/480
+	aux_cohestil<-getMelody(fName=midiFiles)
+
+	cohestil_onset[length(cohestil_onset)]<-cohestil_onset[length(cohestil_onset)-1]
+	cohestil_onset[length(cohestil_onset)-1]<-median(480*aux_cohestil$t_onset[aux_cohestil$t_onset>penult_cohestil_onset & aux_cohestil$t_onset<last_cohestil_onset  ])
+ }
+return(cohestil_onset)
+}
