@@ -1,4 +1,4 @@
-library(tuneR);# midi<- readMidi("Neguit.mid"); midi_aux<-readMidi("Neguit_aux.mid");
+library(tuneR);## midi<- readMidi("Neguit.mid"); midi_aux<-readMidi("Neguit_aux.mid");
 #install.packages("gm"); vignette("gm", package = "gm")
 library(gm)
 figures<-480*c(0.0625, 0.125, 0.25, 1/3, 0.5, 0.75, 0.875, 1)
