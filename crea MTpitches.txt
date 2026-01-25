@@ -1,0 +1,88 @@
+library(tuneR)
+library(gm)
+folder<-('.\\App midisofos\\midi_sheet_melodies\\)
+midiFiles<-dir(folder)
+
+estatsNota<-NULL
+
+for (midiFile in midiFiles[!grepl('forma[[:punct:]]mid', midiFiles) & grepl('[[:punct:]]mid', midiFiles)] ) {
+midiNotes<-getMidiNotes(readMidi(paste(folder, midiFile, sep=""))
+midiForma<-getMidiNotes(readMidi(paste(folder, gsub("\\.", "_forma.", midiFile),  sep="")))
+
+meanPitch<- sum(midiNotes$length*midiNotes$note)/sum(midiNotes$length)
+octava<-floor((sum(midiNotes$length*midiNotes$note)/sum(midiNotes$length))/12)
+midiNotes$note<- 100+midiNotes$note-(12*octava)
+
+i.fiGrup<-which(midiNotes$time%in%midiForma$time[ midiForma$note==60])
+midiNotes$note[i.fiGrup]<-1000+midiNotes$note[i.fiGrup]
+
+midiNotes$fiGrup<-FALSE
+midiNotes$fiGrup[i.fiGrup]<-TRUE
+
+midiNotes$iniciGrup<-FALSE
+i.iniciGrup<-which(midiNotes$time%in%midiForma$time[ midiForma$note==67])
+midiNotes$iniciGrup[i.iniciGrup]<-TRUE
+
+midiNotes$estatMarkov<-as.character(midiNotes$note)
+for(ii in 2:nrow(midiNotes)){midiNotes$estatMarkov[ii]<-paste(midiNotes$note[max(1,ii-2):ii], collapse="_", sep="")} # for ii
+
+if(is.null(estatsNota)){estatsNota<-unique(midiNotes[,c("note", "estatMarkov", "iniciGrup", "fiGrup")])} else {
+estatsNota<- rbind(estatsNota, unique(midiNotes[,c("note", "estatMarkov", "iniciGrup", "fiGrup")])); estatsNota<-unique(estatsNota) }
+
+} #for (midiFile)
+
+nNotes<-6
+darreraNotaEsFinal<-FALSE
+i.primeraNota<-which(!grepl("_", estatsNota$estatMarkov) )
+realitzacionsPitch<-data.frame(notes=estatsNota$estatMarkov[i.primeraNota]  , nNotes=1, last3Note=0,  last2Note=0, lastNote=estatsNota$note[i.primeraNota])
+
+for (comptador.nNotes in 2:nNotes) {
+
+i.realitzacions<-1
+colleccio_novesFiles<-NULL
+while (i.realitzacions <= nrow(realitzacionsPitch)){
+
+aqEstat<-realitzacionsPitch[i.realitzacions, c("last3Note", "last2Note", "lastNote")]
+aqEstat<-aqEstat[aqEstat!=0]
+if(darreraNotaEsFinal & comptador.nNotes==nNotes) { aqEstat_finalGrup<-aqEstat; aqEstat_finalGrup[3]<-1000+aqEstat_finalGrup[3]}
+aqEstat<-paste(aqEstat, collapse="_")
+if(!darreraNotaEsFinal | comptador.nNotes<nNotes) { aqEstat_finalGrup<-aqEstat} else {aqEstat_finalGrup<-paste(aqEstat_finalGrup, collapse="_")}
+
+i.segNota<-	1+	which(	midiNotes$estatMarkov %in% c(aqEstat, aqEstat_finalGrup) & 
+				midiNotes$fiGrup%in%c(FALSE, comptador.nNotes==nNotes) & #Aquesta condicio hauria d'haver impedit l'entrada d'un final de grup: (comptador.nNotes-1)
+				midiNotes$iniciGrup==all(realitzacionsPitch[i.realitzacionsPitch, c("last3Note", "last2Note")]==0)) 
+
+			#Recordar i tenir en compte: el que modifica ("reseteja") les probabilitats no és -pense- que una nota siga inici de grup com que l'anterior siga final del seu grup
+			#La selecció de notes final de grup està garantida pel següent fet:
+			# en els estats d'entrenament de la MT, els finals de grup han codificats dins de l'estat ("midiNotes$note[i.fiGrup]<-1000+midiNotes$note[i.fiGrup]")
+
+
+if (length(i.segNota)==0){realitzacionsPitch<-realitzacionsPitch[-i.realitzacions,] }else{
+#i.segNota<-i.segNota[!midiNotes$iniciGrup[i.segNota]]
+#i.segNota<-i.segNota[!midiNotes$fiGrup %in% c(FALSE, comptador)]  
+realitzacionsPitch[i.realitzacions,"nNotes"]<-comptador.nNotes
+realitzacionsPitch[i.realitzacions, "last3Note"]<-realitzacionsPitch[i.realitzacions, "last2Note"]
+realitzacionsPitch[i.realitzacions, "last2Note"]<-realitzacionsPitch[i.realitzacions, "lastNote"]
+
+#Ací pot ser el moment d'indicar la penalitzacio
+#if(estatsNota$fiGrup[i.segNota[1]])
+
+
+if(length(i.segNota)>1){novesFiles<- data.frame(t(sapply(c(1:(length(i.segNota)-1)),function(x){realitzacionsPitch[i.realitzacions,]}))) } 
+
+realitzacionsPitch[i.realitzacions, "lastNote"]<-estatsNota$note[i.segNota[1]] #Si l'última nota ha de ser fi de grup, i comptador.nNotes==nNote... haurà de codificar-se com a tal. 											#Això s'ha de fer ací i en aqEstat de la seg. iteració -primera nota del grup q vindrà-
+
+realitzacionsPitch[i.realitzacions, "notes"]<-paste(realitzacionsPitch[i.realitzacions, "notes"], realitzacionsPitch[i.realitzacions, "lastNote"], sep="_")
+
+if(length(i.segNota)>1){
+novesFiles[ , "lastNote"]<-estatsNota$note[i.segNota[2:length(segNota)]]
+novesFiles[ , "notes"]<-paste(novesFiles[, "notes"], novesFiles[ , "lastNote"], sep="_") 
+if(is.null(colleccio_novesFiles)){colleccio_novesFiles<-novesFiles}else{colleccio_novesFiles<-rbind(colleccio_novesFiles, novesFiles)}
+
+}
+
+i.realitzacions<-i.realitzacions+1} #Ha trobat continuacions
+} # while i.realitzacions
+realitzacionsPitch<-rbind(realitzacionsPitch, colleccio_novesFiles)
+colleccio_novesFiles<-NULL
+} # for comptadro nNotes
