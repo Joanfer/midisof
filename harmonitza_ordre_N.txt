@@ -1,0 +1,111 @@
+source('.\\App midisofos\\fcons_midi.txt')
+compassos<-data.frame(ntemps=c(2,3,4,2,3,4),utemps=c(1,1,1,1.5,1.5,1.5))
+
+incloure<-data.frame(arrancFi=0, durRel=1, mstrengthRel=1, quintilDurada=1)
+
+midiFiles<-c("palestrina_Agnus_II_64.mid", ".\\App midisofos\\midi_sheet_melodies\\Nada_te_turbe.mid"); 
+
+i.compas<-3
+#Enllacem diversos fitxers midi
+
+for (i.midiFile in 1:length(midiFiles)){
+
+if(length(i.compas)<i.midiFile){aq_i.compas<-3}else{aq_i.compas<-i.compas[i.midiFile]}
+varsMidMark<-get.varsMidMark(midiFiles=midiFiles[i.midiFile], i.compas=aq_i.compas) 
+aux_mat<-t(varsMidMark[[2]][[1]][[1]][,1:10]) #columnes de piano roll
+
+#Eliminem 2 silencis seguits
+aux_mat<- t(varsMidMark[[2]][[1]][[1]][,1:10]);ii<-1; while(ii <ncol(aux_mat)){ if(all(aux_mat[,ii]==0) & all(aux_mat[,ii+1]==0) ){aux_mat<-aux_mat[,-ii]}else{ii<-ii+1}}
+
+aux_mat[aux_mat==0]<-NA
+
+if (all(is.na(aux_mat[,1]))){ } else { aux_mat<- cbind(NA, aux_mat)}
+if (all(is.na(aux_mat[,ncol(aux_mat)]))){ } else { aux_mat<- cbind(aux_mat, NA)}
+
+
+if(i.midiFile==1){mat<-aux_mat} else { mat<-cbind(mat, aux_mat[,-1]) }
+
+}
+#Comprovem que hi ha una columna de NA separant els midiFile i que ens serveix per a indicar fi i inici de composició
+i.tots_zeros<-c(); for (ii in 1:ncol(mat)){if(all(is.na(mat[,ii]))){i.tots_zeros<-c(i.tots_zeros, ii)}}
+
+chord2str<-function(x){ return(paste(sprintf("%03.0f", x), collapse="_")) }
+enllac2str<-function(x, y){return(paste(chord2str(x), "-", chord2str(y), sep=""))}
+
+
+ordre<-3
+arranc<-TRUE
+
+propostes_harmonitzacio_ini<-data.frame(
+				enllac_str=rep("", 100), 
+				pitch_classes=rep("", 100),
+				n_pitch_classes_aq=rep(NA, 100),
+				n_pitch_classes_seg=rep(NA, 100),
+				p1_aq=rep(NA, 100), p2_aq=rep(NA, 100), 
+				p1_nov=rep(NA, 100), p2_nov=rep(NA, 100), 
+				corresp_tot_aq1=rep(NA, 100), corresp_tot_aq2=rep(NA, 100), 
+				corresp_tot_nou1=rep(NA, 100), corresp_tot_nou2=rep(NA, 100),
+				fileName=rep(NA, 100),
+				i.col=rep(NA, 100),
+				source=rep("", 100)
+				)
+
+propostes_harmonitzacio_seg<-propostes_harmonitzacio_ini
+
+me<-data.frame(notes=c(0, 5, 5, 3, 0, 3, 5, 5,5, 8, 7, 5), figs=c(0.5, 1, 1, 1, 0.5, 0.5, 1, 0.5, .5, 1 , 1 , 1.5))
+
+coincideix_disposicio<-FALSE
+
+for (i.mel in ordre:length(me$notes)){
+for (i.col in ordre:(ncol(mat)-1)){
+if (arranc & !all(is.na(mat[,i.col]) & i.mel==ordre) {next}
+
+enllac_str<-paste(apply((mat[,max(i.col-ordre+1):i.col]),2, function(x){print(paste(sort(unique(x)), collapse=""))}), collapse = "-")
+pitch_classes<-paste(apply((mat[,max(i.col-ordre+1):i.col]),2, function(x){print(paste(sort(unique(x%%12)), collapse=""))}), collapse = "-")
+
+
+if(i.mel==ordre){
+	if (all(mapply(	function (x,y) {all(y%in% (unlist(x)%%12)) #recordem la dim de l'exida d'%in%: 1%in%c(1:3) ... T; c(1:3)%in%1 ... T, F, F }, 
+		apply(mat[,(i.col-ordre+1):i.col], 2, list),
+		me$notes[1:i.mel]) ) {} else {next}
+
+	#Possible millora . Si s'utilitza coincideix_disposicio perquè es vol respectar estrictament el moviment contrapuntístic, 
+			#i la melodia no fos una línia sinó una realització a més d'una veu (p.ex. un cànon) caldria transportar -melodia o material d'entrenament- a div. 8es amb for. 
+			# El simple ús del residu, és insensible a les inversions dels intèrvals harmònics de mel i poden derivar 5es, etc. o incoherències
+			# A més, si es tracta de recuperar una realització completa - no d'harmonitzar el cànon amb veus lliures-, les notes del material d'entrenament han de vindre de les 			# mateixes veus, p.ex S-A, S-T, A-T...
+	
+	n_pitch_classes_aq<-paste(apply(apply(mat[,(i.col-ordre+1):i.col],2, function(x){length(unique(x%%12)})), collapse="-") 
+if(coincideix_disposicio){
+	i}else{
+if(pitch_classes%in%propostes_harmonitzacio_ini$pitch_classes){}else{ 
+		propostes_harmonitzacio_ini[min(which(propostes_harmonitzacio_ini$pitch_classes=="")),]}<-
+			data.frame(
+				enllac_str=enllac_str, 
+				pitch_classes=pitch_classes,
+				n_pitch_classes_aq=n_pitch_classes_aq,
+				n_pitch_classes_seg=NA,
+				p1_aq=1, p2_aq=1, 
+				p1_nov=1, p2_nov=1, 
+				corresp_tot_aq1=1, corresp_tot_aq2=1, 
+				corresp_tot_nou1=NA, corresp_tot_nou2=NA,
+				fileName=midiFiles[ max(which(i.tots_zeros<i.col))],
+				i.col=i.col,
+				source=""
+				)
+}
+
+
+} else {
+
+
+
+}
+
+
+
+
+
+
+
+}
+}
